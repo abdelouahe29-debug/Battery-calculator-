@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>حاسبة مدى دراجة 72V</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Tajawal', sans-serif; background-color: #f3f4f6; }
+    </style>
+</head>
+<body class="p-4 sm:p-8">
+    <div class="max-w-md mx-auto bg-white rounded-xl shadow-lg p-6">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">حاسبة بطارية Li-NMC 72V40Ah</h2>
+        
+        <!-- النتيجة -->
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center mb-6">
+            <p class="text-sm text-blue-600 font-semibold mb-1">المدى المتبقي التقريبي</p>
+            <p class="text-4xl font-bold text-blue-700"><span id="rangeOutput">45.5</span> <span class="text-xl">كم</span></p>
+        </div>
+
+        <!-- المدخلات -->
+        <div class="space-y-4">
+            <div>
+                <div class="flex justify-between mb-1">
+                    <label class="text-sm font-medium text-gray-700">الفولتية الحالية (V)</label>
+                    <span id="voltVal" class="text-sm font-bold text-gray-900">72.0 V</span>
+                </div>
+                <input type="range" id="voltage" min="60" max="84" step="0.1" value="72" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+            </div>
+
+            <div>
+                <div class="flex justify-between mb-1">
+                    <label class="text-sm font-medium text-gray-700">حد قطع المتحكم (Cutoff V)</label>
+                    <span id="cutoffVal" class="text-sm font-bold text-gray-900">60.0 V</span>
+                </div>
+                <input type="range" id="cutoff" min="57" max="65" step="0.5" value="60" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+            </div>
+
+            <div>
+                <div class="flex justify-between mb-1">
+                    <label class="text-sm font-medium text-gray-700">الاستهلاك (Wh/km)</label>
+                    <span id="consVal" class="text-sm font-bold text-gray-900">22 Wh/km</span>
+                </div>
+                <input type="range" id="consumption" min="15" max="35" step="1" value="22" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+            </div>
+        </div>
+
+        <!-- الرسم البياني -->
+        <div class="mt-8">
+            <canvas id="dischargeChart" height="200"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const capacityAh = 40;
+        let chartInstance = null;
+
+        function updateCalculator() {
+            const v = parseFloat(document.getElementById('voltage').value);
+            const cutoff = parseFloat(document.getElementById('cutoff').value);
+            const cons = parseFloat(document.getElementById('consumption').value);
+
+            document.getElementById('voltVal').textContent = v.toFixed(1) + ' V';
+            document.getElementById('cutoffVal').textContent = cutoff.toFixed(1) + ' V';
+            document.getElementById('consVal').textContent = cons + ' Wh/km';
+
+            // حساب الطاقة المتبقية بناءً على التقريب الخطي ضمن النطاق
+            let remainingEnergy = 0;
+            if (v > cutoff) {
+                remainingEnergy = (v - cutoff) * capacityAh;
+            }
+            
+            const range = remainingEnergy / cons;
+            document.getElementById('rangeOutput').textContent = Math.max(0, range).toFixed(1);
+
+            updateChart(v, cutoff);
+        }
+
+        function updateChart(currentV, cutoffV) {
+            const ctx = document.getElementById('dischargeChart').getContext('2d');
+            
+            const dataPoints = [84, 78, 74, 70, 66, 60, 57];
+            const labels = ['100%', '80%', '50%', '30%', '10%', 'Cutoff', 'Empty'];
+
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'منحنى الفولتية Li-NMC',
+                        data: dataPoints,
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    },
+                    {
+                        label: 'النقطة الحالية',
+                        data: dataPoints.map(p => p <= currentV + 0.5 && p >= currentV - 0.5 ? currentV : null),
+                        pointBackgroundColor: '#ef4444',
+                        pointRadius: 6,
+                        showLine: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: { min: 55, max: 85 }
+                    },
+                    plugins: {
+                        annotation: {
+                            annotations: {
+                                line1: { type: 'line', yMin: cutoffV, yMax: cutoffV, borderColor: 'red', borderWidth: 2, borderDash: [5, 5] }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        document.getElementById('voltage').addEventListener('input', updateCalculator);
+        document.getElementById('cutoff').addEventListener('input', updateCalculator);
+        document.getElementById('consumption').addEventListener('input', updateCalculator);
+
+        // التهيئة الأولية
+        updateCalculator();
+    </script>
+</body>
+</html>
